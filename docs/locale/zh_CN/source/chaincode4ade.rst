@@ -15,6 +15,17 @@
 
 在下边的章节中，我们站在应用开发者的角度来介绍链码。我们将演示一个简单的链码应用，并且逐个
 查看链码 Shim API 中每一个方法的作用。
+In the following sections, we will explore chaincode through the eyes of an
+application developer. We'll present a simple chaincode sample application
+and walk through the purpose of each method in the Chaincode Shim API. If you
+are a network operator who is deploying a chaincode to running network,
+visit the :doc:`deploy_chaincode` tutorial and the :doc:`chaincode_lifecycle`
+concept topic.
+
+This tutorial provides an overview of the low level APIs provided by the Fabric
+Chaincode Shim API. You can also use the higher level APIs provided by the
+Fabric Contract API. To learn more about developing smart contracts
+using the Fabric contract API, visit the :doc:`developapps/smartcontract` topic.
 
 链码 API
 -------------
@@ -22,8 +33,8 @@
 每一个链码程序都必须实现 ``Chaincode`` 接口，该接口的方法在接受到交易时会被调用。你可以在下边找到不同语言 Chaincode Shim API 的参考文档：
 
   - `Go <https://godoc.org/github.com/hyperledger/fabric-chaincode-go/shim#Chaincode>`__
-  - `node.js <https://fabric-shim.github.io/ChaincodeInterface.html>`__
-  - `Java <https://hyperledger.github.io/fabric-chaincode-java/master/api/org/hyperledger/fabric/shim/Chaincode.html>`_
+  - `Node.js <https://hyperledger.github.io/fabric-chaincode-node/{BRANCH}/api/fabric-shim.ChaincodeInterface.html>`__
+  - `Java <https://hyperledger.github.io/fabric-chaincode-java/{BRANCH}/api/org/hyperledger/fabric/shim/Chaincode.html>`__
 
 在每种语言中，客户端提交交易提案都会调用 ``Invoke`` 方法。该方法可以让你使用链码来读写通道账本上的数据。
 
@@ -32,8 +43,8 @@
 链码 "shim" API 中的其他接口是 ``ChaincodeStubInterface``：
 
   - `Go <https://godoc.org/github.com/hyperledger/fabric-chaincode-go/shim#ChaincodeStubInterface>`__
-  - `node.js <https://fabric-shim.github.io/ChaincodeStub.html>`__
-  - `Java <https://hyperledger.github.io/fabric-chaincode-java/master/api/org/hyperledger/fabric/shim/ChaincodeStub.html>`_
+  - `Node.js <https://hyperledger.github.io/fabric-chaincode-node/{BRANCH}/api/fabric-shim.ChaincodeStub.html>`__
+  - `Java <https://hyperledger.github.io/fabric-chaincode-java/{BRANCH}/api/org/hyperledger/fabric/shim/ChaincodeStub.html>`__
 
 用来访问和修改账本，并且可以调用链码。
 
@@ -43,14 +54,12 @@
 
 简单资产链码
 ----------------------
-
 我们的应用程序是一个基本的示例链码，用来在账本上创建资产（键-值对）。
 
 选择一个位置存放代码
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-如果你没有写过 Go 的程序，你可能需要确认一下你是否安装了 :ref:`Golang` 并且你的系统上的配
-置是否合适。
+如果你没有写过 Go 的程序，你可能需要确认一下你是否安装了 :ref:`Golang` 并且你的系统上的配置是否合适。我们假设你用的是支持模块的版本。
 
 现在你需要在 ``$GOPATH/src/`` 子目录为你的链码应用程序创建一个目录。
 
@@ -58,12 +67,13 @@
 
 .. code:: bash
 
-  mkdir -p $GOPATH/src/sacc && cd $GOPATH/src/sacc
+  mkdir sacc && cd sacc
 
 现在，我们创建一个用于编写代码的源文件：
 
 .. code:: bash
 
+  go mod init sacc
   touch sacc.go
 
 家务
@@ -147,6 +157,7 @@
 
 调用链码
 ^^^^^^^^^^^^^^^^^^^^^^
+
 首先，我们增加一个 ``Invoke`` 函数的签名。
 
 .. code:: go
@@ -164,6 +175,8 @@
 `ChaincodeStubInterface.GetFunctionAndParameters <https://godoc.org/github.com/hyperledger/fabric-chaincode-go/shim#ChaincodeStub.GetFunctionAndParameters>`_
 来解析链码应用程序方法的方法名和参数。
 
+    }
+
 .. code:: go
 
     // Invoke is called per transaction on the chaincode. Each transaction is
@@ -178,7 +191,6 @@
 然后，我们将验证函数名是否为 ``set`` 或者 ``get`` ，并执行链码应用程序的方法，通过
 ``shim.Success`` 或 ``shim.Error`` 返回一个适当的响应，这个响应将被序列化为
 gRPC protobuf 消息。
-
 
 .. code:: go
 
@@ -350,117 +362,6 @@ gRPC protobuf 消息。
     	}
     }
 
-编译链码
-^^^^^^^^^^^^^^^^^^
-
-现在我们编译你的链码。
-
-.. code:: bash
-
-  go get -u github.com/hyperledger/fabric-chaincode-go
-  go build
-
-假设没有错误，现在你可以进行下一步操作，测试你的链码。
-
-使用开发模式测试
-^^^^^^^^^^^^^^^^^^^^^^
-
-一般链码是通过节点执行和维护的。然而在“开发模式”下，链码通过用户编译和执
-行。这个模式在链码“编码/编译/运行/调试”的开发生命周期中很有用。
-
-我们通过一个示例开发网络预先生成的排序和通道构件来启动“开发模式”。这样用户
-就可以快速的进入编译链码和调用的过程。
-
- 装 Hyperledger Fabric 示例
-----------------------------------
-
-如果你还没有完成这些，请参考 :doc:`install` 。
-
-克隆如下命令导航至 ``fabric-samples`` 目录下的 ``chaincode-docker-devmode`` ：
-
-.. code:: bash
-
-  cd chaincode-docker-devmode
-
-现在打开三个终端，并且每个终端都导航至 ``chaincode-docker-devmode`` 目录。
-
-终端1 - 启动网络
-------------------------------
-
-.. code:: bash
-
-    docker-compose -f docker-compose-simple.yaml up
-
-上边的命令启动了一个网络，网络的排序模式为 ``SingleSampleMSPSolo`` ，并且以“开发模式”
-启动了 peer 节点。它还启动了另外两个容器 - 一个是链码环境，另一个是和链码交互的 CLI。
-创建和加入通道的命令在 CLI 容器中，所以我们直接跳入了链码调用。
-
-- 注意: Peer 节点不会使用 TLS 因为 dev 模式不支持 TLS。
-
- 终端2 - 编译并启动链码
-----------------------------------------
-
-.. code:: bash
-
-  docker exec -it chaincode sh
-
-你应该看到如下内容：
-
-.. code:: sh
-
-  /opt/gopath/src/chaincode $
-
-现在，编译你的链码：
-
-.. code:: sh
-
-  cd sacc
-  go build
-
-现在运行链码：
-
-.. code:: sh
-
-  CORE_CHAINCODE_ID_NAME=mycc:0 CORE_PEER_TLS_ENABLED=false ./sacc -peer.address peer:7052
-
-链码从 peer 节点启动并且日志表示链码成功注册到了 peer 节点上。注意，在这个阶段链码
-没有关联任何通道。这个过程通过 ``instantiate`` 命令的之后的步骤完成。
-
-终端3 - 使用链码
-------------------------------
-
-即使你在 ``--peer-chaincodedev`` 模式下，你仍然需要安装链码，这样链码才能正常地通生
-命周期系统链码的检查。这个需求能会在未来的版本中移除。
-
-我们将进入 CLI 容器来执行这些调用。
-
-.. code:: bash
-
-  docker exec -it cli bash
-
-.. code:: bash
-
-  peer chaincode install -p chaincodedev/chaincode/sacc -n mycc -v 0
-  peer chaincode instantiate -n mycc -v 0 -c '{"Args":["a","10"]}' -C myc
-
-现在执行一个调用来将 “a” 的值改为 20 。
-
-.. code:: bash
-
-  peer chaincode invoke -n mycc -c '{"Args":["set", "a", "20"]}' -C myc
-
-最后，查询 ``a`` 。我们将看到一个为 ``20`` 的值。
-
-.. code:: bash
-
-  peer chaincode query -n mycc -c '{"Args":["query","a"]}' -C myc
-
-测试新链码
----------------------
-
-默认地，我们只挂载 ``sacc`` 。然而，你可以很容易地通过将他们加入 ``chaincode`` 子目录
-并重启你的网络来测试不同的链码。这时，它们在你的 ``chaincode`` 容器中是可访问的。
-
 链码访问控制
 ------------------------
 
@@ -479,23 +380,20 @@ To add the client identity shim extension to your chaincode as a dependency, see
 
 管理 Go 链码的扩展依赖
 ----------------------------------------------------------
-你的 Go 链码需要 Go 标准库之外的一些依赖包（比如 shim）。你必须把这些包包含在你的链码包中。
-
-
-有很多 `可用工具 <https://github.com/golang/go/wiki/PackageManagementTools>`__ 来管理这些依赖。
-下面演示如何使用 ``govendor`` ：
+你的 Go 链码需要 Go 标准库之外的一些依赖包（比如 shim）。你必须把这些包包含在你的链码包中。Your Go chaincode depends on Go packages (like the chaincode shim) that are not
+part of the standard library. The source to these packages must be included in
+your chaincode package when it is installed to a peer. If you have structured
+your chaincode as a module, the easiest way to do this is to "vendor" the
+dependencies with ``go mod vendor`` before packaging your chaincode.
 
 .. code:: bash
 
-  govendor init
-  govendor add +external  // Add all external package, or
-  govendor add github.com/external/pkg // Add specific external package
+  go mod tidy
+  go mod vendor
 
-这就把扩展依赖导入了本地的 ``vendor`` 目录。如果你要引用 Fabric shim 或者 shim 的扩展，在执行
-govendor 命令之前，先把 Fabric 仓库复制到 $GOPATH/src/github.com/hyperledger 目录。
+这就把你链码的扩展依赖导入了本地的 ``vendor`` 目录。
 
-当依赖都引入到你的链码目录后， ``peer chaincode package`` 和 ``peer chaincode install`` 操作将
-把这些依赖一起放入链码包中。
+当依赖都引入到你的链码目录后， ``peer chaincode package`` 和 ``peer chaincode install`` 操作将把这些依赖一起放入链码包中。
 
 .. Licensed under Creative Commons Attribution 4.0 International License
    https://creativecommons.org/licenses/by/4.0/
